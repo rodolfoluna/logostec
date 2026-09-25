@@ -109,9 +109,21 @@ def tecnm():
     a = im[..., 3] > 128
     cs = components(a, 50)
     gear = max(cs, key=lambda c: c['a'])
+    # La parte superior del tocado (debajo de la ranura curva) está unida al engrane:
+    # se corta con una línea desde el borde izquierdo hasta la punta de la ranura.
+    cut = np.zeros(a.shape, np.uint8)
+    cv2.line(cut, (470, 196), (622, 196), 1, 3)
+    cut = cut.astype(bool) & gear['mask']
+    pieces = sorted(components(gear['mask'] & ~cut, 20), key=lambda c: -c['a'])
+    crest = np.zeros_like(a)
+    for c in pieces[1:]:
+        crest |= c['mask']
+    crest |= cut  # la línea de corte se asigna al guerrero para no dejar huecos
+    gear = dict(gear, mask=pieces[0]['mask'])
     war, t1, t2 = (np.zeros_like(a) for _ in range(3))
+    war |= crest
     for c in cs:
-        if c is gear:
+        if c['a'] == max(x['a'] for x in cs):
             continue
         target = war if c['y'] < 1250 else (t1 if c['y'] < 1480 else t2)
         target |= c['mask']
